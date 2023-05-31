@@ -7,9 +7,28 @@
 // Global singleton VirtualMachine object.
 VM vm;
 
-void initVM() {}
+static void resetStack() {
+    vm.stackTop = vm.stack;
+}
+
+void initVM() {
+    resetStack();
+}
 
 void freeVM() {}
+
+void push(Value value) {
+    *vm.stackTop = value;
+    vm.stackTop++;
+}
+
+Value pop() {
+    // It's okay to decrement first - the pointer points
+    // at the _next_ empty space; so decrementing gives
+    // the address of the last value!
+    vm.stackTop--;
+    return *vm.stackTop;
+}
 
 static InterpretResult run() {
 // dereferences the current instruction pointer
@@ -20,8 +39,24 @@ static InterpretResult run() {
 // the current instruction pointer and advances the pointer.
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 
+// Perform a binary operation such as addition or multiplication
+// on the two values at the top of the stack.
+#define BINARY_OP(op) \
+    do { \
+        double b = pop(); \
+        double a = pop(); \
+        push(a op b);     \
+    } while (false)
+
     for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
+        printf("        ");
+        for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
+            printf("[ ");
+            printValue(*slot);
+            printf(" ]");
+        }
+        printf("\n");
         // The instruction pointer is absolute but we need an
         // offset for the second argument here.
         disassembleInstruction(vm.chunk,
@@ -31,11 +66,21 @@ static InterpretResult run() {
         switch (instruction = READ_BYTE()) {
             case OP_CONSTANT: {
                 Value constant = READ_CONSTANT();
+                push(constant);
                 printValue(constant);
                 printf("\n");
                 break;
             }
+            /* Arithmetic operations */
+            case OP_ADD:      BINARY_OP(+); break;
+            case OP_SUBTRACT: BINARY_OP(-); break;
+            case OP_MULTIPLY: BINARY_OP(*); break;
+            case OP_DIVIDE:   BINARY_OP(/); break;
+            case OP_NEGATE:   push(-pop()); break;
+            
             case OP_RETURN: {
+                printValue(pop());
+                printf("\n");
                 return INTERPRET_OK;
             }
         }
@@ -43,6 +88,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT    
+#undef BINARY_OP
 }
 
 
