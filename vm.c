@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "debug.h"
 #include "vm.h"
 
@@ -92,11 +93,7 @@ static InterpretResult run() {
 }
 
 
-InterpretResult interpret(Chunk* chunk) {
-    vm.chunk = chunk;
-    
-    // The vm's instruction pointer should start off
-    // pointing to the first bytecode operation.
-    vm.ip = vm.chunk->code;
-    return run();
+InterpretResult interpret(const char* source) {
+    compile(source);
+    return INTERPRET_OK;
 }
