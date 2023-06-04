@@ -114,7 +114,9 @@ static TokenType checkKeyword(
     // First check the length, then the string value.
     // Return the candidate type if a match is found.
     if (scanner.current - scanner.start == start + length && 
-        memcmp(scanner.start + start, rest, length) == 0) return type;    
+            memcmp(scanner.start + start, rest, length) == 0) {
+        return type;    
+    }
 
     return TOKEN_IDENTIFIER;
 }
@@ -124,12 +126,32 @@ static TokenType identifierType() {
         case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);
         case 'c': return checkKeyword(1, 4, "lass", TOKEN_CLASS);
         case 'e': return checkKeyword(1, 4, "lse", TOKEN_ELSE);
+        case 'f':
+            if (scanner.current - scanner.start > 1) {
+            switch (scanner.start[1]) {
+                case 'a':
+                    return checkKeyword(2, 3, "lse", TOKEN_FALSE);
+                case 'o':
+                    return checkKeyword(2, 1, "r", TOKEN_FOR);
+                case 'u':
+                    return checkKeyword(2, 1, "n", TOKEN_FUN);
+            }}
+            break;
         case 'i': return checkKeyword(1, 4, "f", TOKEN_IF);
         case 'n': return checkKeyword(1, 4, "il", TOKEN_NIL);
         case 'o': return checkKeyword(1, 4, "r", TOKEN_OR);
         case 'p': return checkKeyword(1, 4, "rint", TOKEN_PRINT);
         case 'r': return checkKeyword(1, 4, "eturn", TOKEN_RETURN);
         case 's': return checkKeyword(1, 4, "uper", TOKEN_SUPER);
+        case 't':
+            if (scanner.current - scanner.start > 1) {
+            switch (scanner.start[1]) {
+                case 'h':
+                    return checkKeyword(2, 2, "is", TOKEN_THIS);
+                case 'r':
+                    return checkKeyword(2, 2, "ue", TOKEN_TRUE);
+            }}
+            break;
         case 'v': return checkKeyword(1, 4, "ar", TOKEN_VAR);
         case 'w': return checkKeyword(1, 4, "hile", TOKEN_WHILE);
     }
