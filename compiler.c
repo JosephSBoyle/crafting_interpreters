@@ -178,6 +178,29 @@ static void endCompiler() {
     }
 }
 
+// Forward definition
+static void       expression();
+static ParseRule* getRule(TokenType type);
+
+static void parsePrecedence(Precedence, precedence) {
+    // See page 315 of the book for a diagram.
+    advance();
+    ParseFn prefixRule = getRule(parser.previous.type)->prefix;
+    if (prefixRule == NULL) {
+        error ("Expect expression.");
+        return;
+    }
+
+    prefixRule();
+
+    // Recurisvely handle operators with higher precedent.
+    while (precedence <= getRule(parser.current.type)->precedence) {
+        advance();
+        ParseFn infixRule = getRule(parser.previous.type)->infix;
+        infixRule();
+    }
+}
+
 static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
 }
@@ -262,6 +285,7 @@ ParseRule rules[] = {
     [TOKEN_ERROR]         = {NULL,      NULL,   PREC_NONE},
     [TOKEN_EOF]           = {NULL,      NULL,   PREC_NONE},
 };
+
 /* Compile the scanned source to bytecode.
    Return true on success and false if an error occurred
    during parsing */
