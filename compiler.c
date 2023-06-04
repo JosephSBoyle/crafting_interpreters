@@ -5,6 +5,10 @@
 #include "compiler.h"
 #include "scanner.h"
 
+#ifdef DEBUG_PRINT_CODE
+#include "debug.h"
+#endif
+
 typedef struct {
     Token current;
     Token previous;
@@ -43,6 +47,9 @@ typedef enum {
     PREC_PRIMARY,
 } Precedence;
 
+// Type of a function which takes no args, and returns void.
+typedef void (*ParseFn)();
+
 /* Row in parser table containing:
     1. The function to compile a prefix expression beginning with a
         token of that type.
@@ -56,8 +63,6 @@ typedef struct {
     ParseFn    infix;
     Precedence precedence;
 } ParseRule;
-
-typedef void (*ParseFn)();
 
 /* Singleton parser instance */
 Parser parser;
@@ -81,7 +86,7 @@ static void errorAt(Token* token, const char* message) {
     } else if (token->type == TOKEN_ERROR) {
         // Nothing.
     } else {
-        fprintf("stderr", " at '%.*s'", token->length, token->start);
+        fprintf(stderr, " at '%.*s'", token->length, token->start);
     }
 
     fprintf(stderr, ": %s\n", message);
@@ -149,6 +154,21 @@ static void emitConstant(Value value) {
 }
 
 static void endCompiler() {
+    emitReturn();
+
+#ifdef DEBUG_PRINT_CODE
+    if (!parser.hadError) {
+        disassembleChunk(currentChunk(), "code");
+    }
+#endif
+}
+
+// Forward declarations for handling declaration cycle.
+static void       expression();
+static ParseRule* getRule(TokenType type);
+static void       parsePrecedence(Precedence precedence);
+
+static void binary() {
     // Binary operators are left-assosciative for the same operator:
     //    1 + 2 + 3
     // should be parsed as
@@ -165,46 +185,19 @@ static void endCompiler() {
 
     // Compile the RHS operand.
     ParseRule* rule = getRule(operatorType);
-    parsePrecedence((Precedence)(rule->precedence + 1);
+    parsePrecedence((Precedence)(rule->precedence + 1));
 
     // Emit the operator instruction.
-    switch (operatorType) {
+    switch (operatorType) 
+    {
         case TOKEN_PLUS:    emitByte(OP_ADD);       break;
         case TOKEN_MINUS:   emitByte(OP_SUBTRACT);  break;
-        case TOKEN_START:   emitByte(OP_MULTIPLY);  break;
-        case TOKEN_SLASH:   emitByte(OP_DIVIE);     break;
-        case default:
+        case TOKEN_STAR:    emitByte(OP_MULTIPLY);  break;
+        case TOKEN_SLASH:   emitByte(OP_DIVIDE);    break;
+        default:
             return; // Unreachable.
     }
 }
-
-// Forward definition
-static void       expression();
-static ParseRule* getRule(TokenType type);
-
-static void parsePrecedence(Precedence, precedence) {
-    // See page 315 of the book for a diagram.
-    advance();
-    ParseFn prefixRule = getRule(parser.previous.type)->prefix;
-    if (prefixRule == NULL) {
-        error ("Expect expression.");
-        return;
-    }
-
-    prefixRule();
-
-    // Recurisvely handle operators with higher precedent.
-    while (precedence <= getRule(parser.current.type)->precedence) {
-        advance();
-        ParseFn infixRule = getRule(parser.previous.type)->infix;
-        infixRule();
-    }
-}
-
-static void expression() {
-    parsePrecedence(PREC_ASSIGNMENT);
-}
-
 
 /* Handle parenthetic expressions such as ((1 + 2) * 3) */
 static void grouping() {
@@ -219,7 +212,7 @@ static void grouping() {
 static void number() {
     // Assume that the number literal has been consumed
     // and stored in `parser.previous`.
-    double value = strtod(parser.previous, NULL);
+    double value = strtod(parser.previous.start, NULL);
     emitConstant(value);
 }
 
@@ -285,6 +278,33 @@ ParseRule rules[] = {
     [TOKEN_ERROR]         = {NULL,      NULL,   PREC_NONE},
     [TOKEN_EOF]           = {NULL,      NULL,   PREC_NONE},
 };
+
+static void parsePrecedence(Precedence precedence) {
+    // See page 315 of the book for a diagram.
+    advance();
+    ParseFn prefixRule = getRule(parser.previous.type)->prefix;
+    if (prefixRule == NULL) {
+        error ("Expect expression.");
+        return;
+    }
+
+    prefixRule();
+
+    // Recurisvely handle operators with higher precedent.
+    while (precedence <= getRule(parser.current.type)->precedence) {
+        advance();
+        ParseFn infixRule = getRule(parser.previous.type)->infix;
+        infixRule();
+    }
+}
+
+static ParseRule* getRule(TokenType type) {
+    return &rules[type];
+}
+
+static void expression() {
+    parsePrecedence(PREC_ASSIGNMENT);
+}
 
 /* Compile the scanned source to bytecode.
    Return true on success and false if an error occurred
