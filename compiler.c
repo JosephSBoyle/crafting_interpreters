@@ -43,6 +43,22 @@ typedef enum {
     PREC_PRIMARY,
 } Precedence;
 
+/* Row in parser table containing:
+    1. The function to compile a prefix expression beginning with a
+        token of that type.
+    2. The function to compile an infix expression whose left operand
+        is followed by a token of that type
+    3. The precedence of an infix expression that uses that token as
+        an operator.
+*/
+typedef struct {
+    ParseFn    prefix;
+    ParseFn    infix;
+    Precedence precedence;
+} ParseRule;
+
+typedef void (*ParseFn)();
+
 /* Singleton parser instance */
 Parser parser;
 
@@ -161,9 +177,9 @@ static void endCompiler() {
             return; // Unreachable.
     }
 }
+
 static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
-
 }
 
 
@@ -199,7 +215,53 @@ static void unary() {
     }
 }
 
-
+/* Table of rules for each type of token.
+   Each line is a `ParseRule`, mapping a token to functions for
+   handling that token as a unary and/or binary operator where
+   applicable, as well as the precedence of that operator token.
+*/
+ParseRule rules[] = {
+    [TOKEN_LEFT_PAREN]    = {grouping,  NULL,   PREC_NONE},
+    [TOKEN_RIGHT_PAREN]   = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_LEFT_BRACE]    = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_RIGHT_BRACE]   = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_COMMA]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_DOT]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_MINUS]         = {unary,     binary, PREC_TERM},
+    [TOKEN_PLUS]          = {NULL,      binary, PREC_TERM},
+    [TOKEN_SEMICOLON]     = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_SLASH]         = {NULL,      binary, PREC_FACTOR},
+    [TOKEN_STAR]          = {NULL,      binary, PREC_FACTOR},
+    [TOKEN_BANG]          = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_BANG_EQUAL]    = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_EQUAL]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_EQUAL_EQUAL]   = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_GREATER]       = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_GREATER_EQUAL] = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_LESS]          = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_LESS_EQUAL]    = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_IDENTIFIER]    = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_STRING]        = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_NUMBER]        = {number,    NULL,   PREC_NONE},
+    [TOKEN_AND]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_CLASS]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_ELSE]          = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_FALSE]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_FOR]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_FUN]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_IF]            = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_NIL]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_OR]            = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_PRINT]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_RETURN]        = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_SUPER]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_THIS]          = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_TRUE]          = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_VAR]           = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_WHILE]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_ERROR]         = {NULL,      NULL,   PREC_NONE},
+    [TOKEN_EOF]           = {NULL,      NULL,   PREC_NONE},
+};
 /* Compile the scanned source to bytecode.
    Return true on success and false if an error occurred
    during parsing */
