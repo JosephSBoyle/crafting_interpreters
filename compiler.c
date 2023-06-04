@@ -12,6 +12,37 @@ typedef struct {
     bool  panicMode;
 } Parser;
 
+
+/* Operator precedences, from highest to lowest.
+
+C implicitly gives successively larger numbers for enums.
+Therefore, PREC_NONE < PREC_ASSIGNMENT etc.
+
+We need this for handling expressions that need to be evaluated in
+specific orders. For instance:
+
+    -x.y * z
+
+Needs to be evaluated as it would be spoken:
+    "the negative of x's y attribute, multiplied by z."
+
+A naive evaluator of this expression would evaluate in the wrong
+order.
+*/
+typedef enum {
+    PREC_NONE,
+    PREC_ASSIGNMENT, // =
+    PREC_OR,         // or
+    PREC_AND,        // and
+    PREC_EQUALITY,   // == !=
+    PREC_COMPARISON, // < > <= >=
+    PREC_TERM,       // + -
+    PREC_FACTOR,     // * /
+    PREC_UNARY,      // ! -
+    PREC_CALL,       // . ()
+    PREC_PRIMARY,
+} Precedence;
+
 /* Singleton parser instance */
 Parser parser;
 
@@ -85,8 +116,87 @@ static void emitReturn() {
     emitByte(OP_RETURN);
 }
 
+/* Make a constant, first checking that we haven't defined
+   too many constants! */
+static uint8_t makeConstant(Value value) {
+    int constant = addConstant(currentChunk(), value);
+    if (constant > UINT8_MAX) {
+        error("Too many constants in one chunk.");
+        return 0;
+    }
+
+    return (uint8_t)constant;
+}
+
+static void emitConstant(Value value) {
+    emitBytes(OP_CONSTANT, makeConstant(value));
+}
+
 static void endCompiler() {
-    emitReturn();
+    // Binary operators are left-assosciative for the same operator:
+    //    1 + 2 + 3
+    // should be parsed as
+    //    (1 + 2) + 3
+    //
+    // For different operators, e.g:
+    //    2 * 3 + 4
+    // The RHS operand of '*' should only capture '3', not '3+4'.
+    // This is because '+' has a lower precedence than '*', and
+    // thus should be evaluated later.
+
+    // Remember the operator.
+    TokenType operatorType = parser.previous.type;
+
+    // Compile the RHS operand.
+    ParseRule* rule = getRule(operatorType);
+    parsePrecedence((Precedence)(rule->precedence + 1);
+
+    // Emit the operator instruction.
+    switch (operatorType) {
+        case TOKEN_PLUS:    emitByte(OP_ADD);       break;
+        case TOKEN_MINUS:   emitByte(OP_SUBTRACT);  break;
+        case TOKEN_START:   emitByte(OP_MULTIPLY);  break;
+        case TOKEN_SLASH:   emitByte(OP_DIVIE);     break;
+        case default:
+            return; // Unreachable.
+    }
+}
+static void expression() {
+    parsePrecedence(PREC_ASSIGNMENT);
+
+}
+
+
+/* Handle parenthetic expressions such as ((1 + 2) * 3) */
+static void grouping() {
+
+    // Recursively called
+    expression();
+
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+}
+
+/* Write a parsed number literal as a const */
+static void number() {
+    // Assume that the number literal has been consumed
+    // and stored in `parser.previous`.
+    double value = strtod(parser.previous, NULL);
+    emitConstant(value);
+}
+
+/* Dispatch a unary operator to the appropriate byte emitter */ 
+static void unary() {
+    TokenType operatorType = parser.previous.type;
+
+    // Recursively called
+    expression(PREC_UNARY);
+
+    // Emit the operator's instruction
+    switch (operatorType) {
+        case TOKEN_MINUS: emitByte(OP_NEGATE); break;
+        default:
+            return; // Unreachable.
+    }
 }
 
 
