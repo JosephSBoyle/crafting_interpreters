@@ -16,6 +16,8 @@ typedef struct {
     /* Pointer to the next empty slot at the top of the stack.
     It's quicker to simply dereference the pointer
     than to keep computing it using an offset.*/
+
+    Obj* objects;
 } VM;
 
 typedef enum {
@@ -23,6 +25,8 @@ typedef enum {
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
+
+extern VM vm;
 
 void initVM();
 void freeVM();

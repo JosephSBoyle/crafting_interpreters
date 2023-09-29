@@ -2,9 +2,13 @@
 #define clox_memory_h
 
 #include "common.h"
+#include "object.h"
 
 #define ALLOCATE(type, count)   \
     (type*)reallocate(NULL, 0, sizeof(type) * (count))
+
+// Resize an allocation down to zero bytes - thus freeing it.
+#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
 
 // equivalent to `min(8, capacity * 2)`
 #define GROW_CAPACITY(capacity) \
@@ -18,5 +22,6 @@
     reallocate(pointer, sizeof(type) * (oldCount), 0)
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+void freeObjects();
 
 #endif
