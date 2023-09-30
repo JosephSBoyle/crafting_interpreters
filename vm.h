@@ -3,6 +3,7 @@
 
 #include "chunk.h"
 #include "value.h"
+#include "table.h"
 
 #define STACK_MAX 256
 
@@ -16,6 +17,8 @@ typedef struct {
     /* Pointer to the next empty slot at the top of the stack.
     It's quicker to simply dereference the pointer
     than to keep computing it using an offset.*/
+
+    Table strings;
 
     Obj* objects;
 } VM;
