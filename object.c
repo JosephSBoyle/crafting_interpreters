@@ -22,7 +22,7 @@ static Obj* allocateObject(size_t size, ObjType type) {
 }
 
 
-static ObjString* allocateString(char* chars, int length
+static ObjString* allocateString(char* chars, int length,
                                  uint32_t hash) {
     ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
     string->length = length;
@@ -57,7 +57,7 @@ ObjString* takeString(char* chars, int length) {
 }
 
 ObjString* copyString(const char* chars, int length) {
-    hash = hashString(chars, length);
+    uint32_t hash = hashString(chars, length);
     ObjString* interned = tableFindString(&vm.strings, chars, length,
                                           hash);
     // Check if we've interned this string in our strings map.

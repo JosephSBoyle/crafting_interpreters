@@ -84,7 +84,7 @@ bool tableDelete(Table* table, ObjString* key) {
     // This is because linear probing may require this entry to
     // be set in order to find subsequent values properly.
     entry->key   = NULL;
-    entry->value = BOOl_VAL(true);
+    entry->value = BOOL_VAL(true);
   
     return true;
 }
