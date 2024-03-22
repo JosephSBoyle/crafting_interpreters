@@ -17,7 +17,8 @@ typedef struct {
     /* Pointer to the next empty slot at the top of the stack.
     It's quicker to simply dereference the pointer
     than to keep computing it using an offset.*/
-
+    
+    Table globals;
     Table strings;
 
     Obj* objects;

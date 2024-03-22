@@ -33,11 +33,13 @@ static void runtimeError(const char* format, ...) {
 void initVM() {
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.globals);
     initTable(&vm.strings);
 }
 
 void freeVM() {
     freeObjects();
+    freeTable(&vm.globals);
     freeTable(&vm.strings);
 }
 
@@ -90,6 +92,8 @@ static InterpretResult run() {
 // the current instruction pointer and advances the pointer.
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 
+#define READ_STRING() AS_STRING(READ_CONSTANT())
+
 // Perform a binary operation such as addition or multiplication
 // on the two values at the top of the stack.
 #define BINARY_OP(valueType, op) \
@@ -132,6 +136,35 @@ static InterpretResult run() {
             case OP_TRUE:  push(BOOL_VAL(true));  break;
             case OP_FALSE: push(BOOL_VAL(false)); break;
             case OP_POP:   pop();                 break;
+            case OP_GET_GLOBAL: {
+                // Read a global and push it's value onto the stack
+                ObjString* name = READ_STRING();
+                printf(name);
+                Value value;
+                if (!tableGet(&vm.globals, name, &value)) {
+                    runtimeError("Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_DEFINE_GLOBAL: {
+                ObjString* name = READ_STRING();
+
+                // Note how we seperate the `peek` and `pop`
+                // operations here.
+                //
+                // As I understand it, this is to keep a reference
+                // to it on the stack whilst adding it to the globals
+                // hashmap, which is an operation which can trigger gc.
+                //
+                // ??? If we instead `pop` the value immediately, it may
+                // no longer be referenced on the stack and thus deleted.
+                bool success = tableSet(&vm.globals, name, peek(0));
+                printf("ADDED TO GLOBALS ? %i", success);
+                pop();
+                break;
+            }
             case OP_EQUAL: {
                 Value b = pop();
                 Value a = pop();
@@ -186,6 +219,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT    
+#undef READ_STRING
 #undef BINARY_OP
 }
 
